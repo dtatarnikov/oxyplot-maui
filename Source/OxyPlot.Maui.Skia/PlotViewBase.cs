@@ -256,7 +256,7 @@ public abstract partial class PlotViewBase : BaseTemplatedView<Grid>, IPlotView
 
             var tracker = (ContentView)trackerTemplate.CreateContent();
             this.overlays.Children.Add(tracker);
-            AbsoluteLayout.SetLayoutBounds(tracker, new Rect(0, 0, 1, 1));
+            AbsoluteLayout.SetLayoutBounds(tracker, new Rect(0, 0, 0, 0));
             this.currentTracker = tracker;
             this.currentTrackerTemplate = trackerTemplate;
         }

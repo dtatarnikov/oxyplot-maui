@@ -8,18 +8,24 @@ namespace OxyPlot.Maui.Skia.ios.Effects;
 
 public class PlatformTouchEffect : PlatformEffect
 {
-    private UIView view;
-    private TouchRecognizer touchRecognizer;
+    UIView view;
+    TouchRecognizer touchRecognizer;
 
     protected override void OnAttached()
     {
+        // Get the iOS UIView corresponding to the Element that the effect is attached to
         view = Control ?? Container;
 
+        // Uncomment this line if the UIView does not have touch enabled by default
+        //view.UserInteractionEnabled = true;
+
+        // Get access to the TouchEffect class in the .NET Standard library
         var touchEffect = Element.Effects.OfType<MyTouchEffect>().FirstOrDefault();
 
         if (touchEffect != null && view != null)
         {
-            touchRecognizer = new TouchRecognizer(Element, touchEffect);
+            // Create a TouchRecognizer for this UIView
+            touchRecognizer = new TouchRecognizer(Element, view, touchEffect);
             view.AddGestureRecognizer(touchRecognizer);
         }
     }
@@ -28,71 +34,140 @@ public class PlatformTouchEffect : PlatformEffect
     {
         if (touchRecognizer != null)
         {
+            // Clean up the TouchRecognizer object
             touchRecognizer.Detach();
+
+            // Remove the TouchRecognizer from the UIView
             view.RemoveGestureRecognizer(touchRecognizer);
         }
     }
 }
 
-internal class TouchRecognizer : UIGestureRecognizer
+class TouchRecognizer : UIGestureRecognizer
 {
-    private readonly Microsoft.Maui.Controls.Element element;
-    private readonly MyTouchEffect touchEffect;
-    private uint activeTouchesCount = 0;
+    Microsoft.Maui.Controls.Element element;        // Forms element for firing events
+    UIView view;            // iOS UIView 
+    MyTouchEffect touchPlatformEffect;
 
-    public TouchRecognizer(Microsoft.Maui.Controls.Element element, MyTouchEffect touchEffect)
+    static Dictionary<UIView, TouchRecognizer> viewDictionary = new();
+
+    static Dictionary<long, TouchRecognizer> idToTouchDictionary = new();
+
+    public TouchRecognizer(Microsoft.Maui.Controls.Element element, UIView view, MyTouchEffect touchPlatformEffect)
     {
         this.element = element;
-        this.touchEffect = touchEffect;
+        this.view = view;
+        this.touchPlatformEffect = touchPlatformEffect;
 
-        ShouldRecognizeSimultaneously = new UIGesturesProbe((_, _) => true);
+        viewDictionary.Add(view, this);
     }
 
     public void Detach()
     {
-        ShouldRecognizeSimultaneously = null;
+        viewDictionary.Remove(view);
     }
 
+    // touches = touches of interest; evt = all touches of type UITouch
     public override void TouchesBegan(NSSet touches, UIEvent evt)
     {
         base.TouchesBegan(touches, evt);
-        activeTouchesCount += touches.Count.ToUInt32();
-        FireEvent(touches, TouchActionType.Pressed, true);
+
+        foreach (UITouch touch in touches.Cast<UITouch>())
+        {
+            long id = ((IntPtr)touch.Handle).ToInt64();
+            FireEvent(this, id, TouchActionType.Pressed, touch, true);
+
+            if (!idToTouchDictionary.ContainsKey(id))
+            {
+                idToTouchDictionary.Add(id, this);
+            }
+        }
     }
 
     public override void TouchesMoved(NSSet touches, UIEvent evt)
     {
         base.TouchesMoved(touches, evt);
 
-        if (activeTouchesCount == touches.Count.ToUInt32())
+        foreach (UITouch touch in touches.Cast<UITouch>())
         {
-            FireEvent(touches, TouchActionType.Moved, true);
+            long id = ((IntPtr)touch.Handle).ToInt64();
+            CheckForBoundaryHop(touch);
+            if (idToTouchDictionary[id] != null)
+            {
+                FireEvent(idToTouchDictionary[id], id, TouchActionType.Moved, touch, true);
+            }
         }
     }
 
     public override void TouchesEnded(NSSet touches, UIEvent evt)
     {
         base.TouchesEnded(touches, evt);
-        activeTouchesCount -= touches.Count.ToUInt32();
-        FireEvent(touches, TouchActionType.Released, false);
+
+        foreach (UITouch touch in touches.Cast<UITouch>())
+        {
+            long id = ((IntPtr)touch.Handle).ToInt64();
+            CheckForBoundaryHop(touch);
+            if (idToTouchDictionary[id] != null)
+            {
+                FireEvent(idToTouchDictionary[id], id, TouchActionType.Released, touch, false);
+            }
+
+            idToTouchDictionary.Remove(id);
+        }
     }
 
     public override void TouchesCancelled(NSSet touches, UIEvent evt)
     {
         base.TouchesCancelled(touches, evt);
+
+        foreach (UITouch touch in touches.Cast<UITouch>())
+        {
+            long id = ((IntPtr)touch.Handle).ToInt64();
+            idToTouchDictionary.Remove(id);
+        }
     }
 
-    private void FireEvent(NSSet touches, TouchActionType actionType, bool isInContact)
+    void CheckForBoundaryHop(UITouch touch)
     {
-        UITouch[] uiTouches = touches.Cast<UITouch>().ToArray();
-        long id = ((IntPtr)uiTouches.First().Handle).ToInt64();
-        Point[] points = new Point[uiTouches.Length];
+        long id = ((IntPtr)touch.Handle).ToInt64();
 
-        for (int i = 0; i < uiTouches.Length; i++)
+        // TODO: Might require converting to a List for multiple hits
+        TouchRecognizer recognizerHit = null;
+
+        foreach (UIView view in viewDictionary.Keys)
         {
-            CGPoint cgPoint = uiTouches[i].LocationInView(View);
-            points[i] = new(cgPoint.X, cgPoint.Y);
+            CGPoint location = touch.LocationInView(view);
+
+            if (new CGRect(new CGPoint(), view.Frame.Size).Contains(location))
+            {
+                recognizerHit = viewDictionary[view];
+            }
         }
-        touchEffect.OnTouchAction(element, new(id, actionType, points, isInContact));
+        if (recognizerHit != idToTouchDictionary[id])
+        {
+            if (idToTouchDictionary[id] != null)
+            {
+                FireEvent(idToTouchDictionary[id], id, TouchActionType.Pressed, touch, true);
+            }
+            if (recognizerHit != null)
+            {
+                FireEvent(recognizerHit, id, TouchActionType.Released, touch, true);
+            }
+            idToTouchDictionary[id] = recognizerHit;
+        }
+    }
+
+    void FireEvent(TouchRecognizer recognizer, long id, TouchActionType actionType, UITouch touch, bool isInContact)
+    {
+        // Convert touch location to Maui Point value
+        CGPoint cgPoint = touch.LocationInView(recognizer.View);
+        Point xfPoint = new Point(cgPoint.X, cgPoint.Y);
+
+        // Get the method to call for firing events
+        var onTouchAction = recognizer.touchPlatformEffect.OnTouchAction;
+
+        // Call that method
+        onTouchAction(recognizer.element,
+            new TouchActionEventArgs(id, actionType, new[] { xfPoint }, isInContact));
     }
 }

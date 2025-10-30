@@ -14,7 +14,7 @@ public static class AppHostBuilderExtensions
 #elif WINDOWS
             effects.Add<MyTouchEffect, Windows.Effects.PlatformTouchEffect>();
 #elif MACCATALYST
-            effects.Add<MyTouchEffect, mac.Effects.PlatformTouchEffect>();
+            // not implemented
 #elif __IOS__
             effects.Add<MyTouchEffect, ios.Effects.PlatformTouchEffect>();
 #endif
