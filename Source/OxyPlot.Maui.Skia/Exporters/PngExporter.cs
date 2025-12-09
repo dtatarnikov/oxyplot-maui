@@ -58,16 +58,22 @@ public class PngExporter : IExporter
     {
         using var bitmap = new SKBitmap(this.Width, this.Height);
 
-        using (var canvas = new SKCanvas(bitmap))
-        using (var context = new SkiaRenderContext { RenderTarget = RenderTarget.PixelGraphic, SkCanvas = canvas, UseTextShaping = this.UseTextShaping })
+        using var canvas = new SKCanvas(bitmap);
+        using var context = new SkiaRenderContext
         {
-            var dpiScale = this.Dpi / 96;
-            context.DpiScale = dpiScale;
-            model.Update(true);
-            canvas.Clear(model.Background.ToSKColor());
-            model.Render(context, new OxyRect(0, 0, this.Width / dpiScale, this.Height / dpiScale));
-        }
+            RenderTarget = RenderTarget.PixelGraphic, 
+            SkCanvas = canvas, 
+            UseTextShaping = this.UseTextShaping
+        };
+        
+        var dpiScale = this.Dpi / 96;
+        context.DpiScale = dpiScale;
 
+        model.Update(true);
+
+        canvas.Clear(model.Background.IsVisible() ? model.Background.ToSKColor() : SKColors.Empty);
+        model.Render(context, new OxyRect(0, 0, this.Width / dpiScale, this.Height / dpiScale));
+        
         using var skStream = new SKManagedWStream(stream);
         bitmap.Encode(skStream, SKEncodedImageFormat.Png, 0);
     }

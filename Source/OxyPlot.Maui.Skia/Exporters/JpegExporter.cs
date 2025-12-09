@@ -60,25 +60,26 @@ public class JpegExporter : IExporter
     {
         using var bitmap = new SKBitmap(this.Width, this.Height);
 
-        using (var canvas = new SKCanvas(bitmap))
-        using (var context = new SkiaRenderContext { RenderTarget = RenderTarget.PixelGraphic, SkCanvas = canvas })
+        using var canvas = new SKCanvas(bitmap);
+        using var context = new SkiaRenderContext
         {
-            canvas.Clear(SKColors.White);
-            var dpiScale = this.Dpi / 96;
-            context.DpiScale = dpiScale;
-            model.Update(true);
-            var backgroundColor = model.Background;
+            RenderTarget = RenderTarget.PixelGraphic, 
+            SkCanvas = canvas
+        };
+        
+        var dpiScale = this.Dpi / 96;
+        context.DpiScale = dpiScale;
+        
+        model.Update(true);
 
-            // jpg doesn't support transparency
-            if (!backgroundColor.IsVisible())
-            {
-                backgroundColor = OxyColors.White;
-            }
-
-            canvas.Clear(backgroundColor.ToSKColor());
-            model.Render(context, new OxyRect(0, 0, this.Width / dpiScale, this.Height / dpiScale));
+        var backgroundColor = model.Background;
+        if (!backgroundColor.IsVisible()) // jpg doesn't support transparency
+        {
+            backgroundColor = OxyColors.White;
         }
-
+        canvas.Clear(backgroundColor.ToSKColor());
+        model.Render(context, new OxyRect(0, 0, this.Width / dpiScale, this.Height / dpiScale));
+        
         using var skStream = new SKManagedWStream(stream);
         bitmap.Encode(skStream, SKEncodedImageFormat.Jpeg, this.Quality);
     }

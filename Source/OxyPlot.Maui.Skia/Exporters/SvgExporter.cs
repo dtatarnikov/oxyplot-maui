@@ -21,14 +21,20 @@ public class SvgExporter : IExporter
         using var skStream = new SKManagedWStream(stream);
         using var canvas = SKSvgCanvas.Create(new SKRect(0, 0, this.Width, this.Height), skStream);
 
+        // SVG export does not work with UseTextShaping=true. However SVG does text shaping by itself anyway, so we can just disable it
+        using var context = new SkiaRenderContext
+        {
+            RenderTarget = RenderTarget.VectorGraphic, 
+            SkCanvas = canvas, 
+            UseTextShaping = false
+        };
+        
+        model.Update(true);
+        
         if (!model.Background.IsInvisible())
         {
             canvas.Clear(model.Background.ToSKColor());
         }
-
-        // SVG export does not work with UseTextShaping=true. However SVG does text shaping by itself anyway, so we can just disable it
-        using var context = new SkiaRenderContext { RenderTarget = RenderTarget.VectorGraphic, SkCanvas = canvas, UseTextShaping = false };
-        model.Update(true);
         model.Render(context, new OxyRect(0, 0, this.Width, this.Height));
     }
 }

@@ -51,11 +51,19 @@ public class PdfExporter : IExporter
     {
         using var document = SKDocument.CreatePdf(stream);
         using var pdfCanvas = document.BeginPage(this.Width, this.Height);
-        using var context = new SkiaRenderContext { RenderTarget = RenderTarget.VectorGraphic, SkCanvas = pdfCanvas, UseTextShaping = this.UseTextShaping };
+        using var context = new SkiaRenderContext
+        {
+            RenderTarget = RenderTarget.VectorGraphic, 
+            SkCanvas = pdfCanvas, 
+            UseTextShaping = this.UseTextShaping
+        };
+        
         const float dpiScale = 72f / 96;
         context.DpiScale = dpiScale;
+
         model.Update(true);
-        pdfCanvas.Clear(model.Background.ToSKColor());
+
+        pdfCanvas.Clear(model.Background.IsVisible() ? model.Background.ToSKColor() : SKColors.Empty);
         model.Render(context, new OxyRect(0, 0, this.Width / dpiScale, this.Height / dpiScale));
     }
 }
