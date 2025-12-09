@@ -12,7 +12,7 @@ namespace OxyPlot.Maui.Skia;
 /// <summary>
 /// Implements <see cref="IRenderContext" /> based on SkiaSharp.
 /// </summary>
-internal class SkiaRenderContext : IRenderContext, IDisposable
+public class SkiaRenderContext : IRenderContext, IDisposable
 {
     private readonly Dictionary<FontDescriptor, SKShaper> shaperCache = new();
     private readonly Dictionary<FontDescriptor, SKTypeface> typefaceCache = new();

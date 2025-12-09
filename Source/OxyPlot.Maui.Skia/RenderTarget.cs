@@ -9,7 +9,7 @@ namespace OxyPlot.Maui.Skia;
 /// <summary>
 /// Defines a render target for <see cref="SkiaRenderContext"/>.
 /// </summary>
-internal enum RenderTarget
+public enum RenderTarget
 {
     /// <summary>
     /// Indicates that the <see cref="SkiaRenderContext"/> renders to a screen.
