@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-
-namespace OxyPlot.Maui.Skia.Fonts;
+﻿namespace OxyPlot.Maui.Skia.Fonts;
 
 internal static class SkFontsHelper
 {
@@ -19,18 +17,10 @@ internal static class SkFontsHelper
         null;
 #endif
 
-    private static readonly ConcurrentDictionary<string, SKTypeface> FontCache = new();
-
     public static SKTypeface ResolveFont(string fontFamily, int fontWeight)
     {
         if (string.IsNullOrEmpty(fontFamily)) return SKTypeface.Default;
 
-        var key = $"{fontFamily}\t{fontWeight}";
-        return FontCache.GetOrAdd(key, (_) => ResolveFontCore(fontFamily, fontWeight));
-    }
-
-    private static SKTypeface ResolveFontCore(string fontFamily, int fontWeight)
-    {
         var typeface = SKTypeface.FromFamilyName(fontFamily, new SKFontStyle(fontWeight, (int)SKFontStyleWidth.Normal, SKFontStyleSlant.Upright));
         if (typeface != null && typeface.FamilyName == fontFamily)
             return typeface;
@@ -43,6 +33,7 @@ internal static class SkFontsHelper
 
         if (fontStream != null)
         {
+            typeface?.Dispose();
             typeface = SKTypeface.FromStream(fontStream);
             fontStream.Close();
             return typeface;
